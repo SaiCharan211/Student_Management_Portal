@@ -14,6 +14,8 @@ export default function ManageStaff() {
   const [people, setPeople] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [updatingRoleId, setUpdatingRoleId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [form, setForm] = useState(EMPTY);
@@ -56,16 +58,30 @@ export default function ManageStaff() {
     if (form.password.length < 8) found.password = 'Use at least 8 characters.';
     setErrors(found);
     if (Object.keys(found).length) return;
+    setCreating(true);
     const ok = await run(
       { action: 'create', ...form, email: form.email.trim().toLowerCase(), full_name: form.full_name.trim() },
       `${form.full_name.trim()} was added as ${form.role}.`
     );
+    setCreating(false);
     if (ok) setForm(EMPTY);
   };
 
   const handleRemove = (p) => {
     if (window.confirm(`Remove ${p.email}? They will no longer be able to log in.`))
       run({ action: 'delete', id: p.id }, `${p.email} was removed.`);
+  };
+
+  const handleRoleChange = async (person, role) => {
+    setUpdatingRoleId(person.id);
+    try {
+      await run(
+        { action: 'set_role', id: person.id, role },
+        `${person.email} is now ${role}.`
+      );
+    } finally {
+      setUpdatingRoleId(null);
+    }
   };
 
   const f = (name) => ({ name, value: form[name], onChange: handleChange, error: errors[name] });
@@ -87,7 +103,7 @@ export default function ManageStaff() {
               <option value="admin">Admin (full access)</option>
             </Field>
           </div>
-          <button className="btn" type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Working…' : 'Add account'}</button>
+          <button className="btn" type="submit" disabled={busy} aria-busy={creating}>{creating ? 'Working…' : 'Add account'}</button>
         </form>
       </section>
 
@@ -107,13 +123,20 @@ export default function ManageStaff() {
                       <td data-label="Name">{p.full_name} {isMe && <small className="muted">(you)</small>}</td>
                       <td data-label="Email">{p.email}</td>
                       <td data-label="Role">
-                        <select className="inline-select" value={p.role} disabled={isMe || busy}
-                                aria-label={`Role for ${p.email}`}
-                                onChange={(e) => run({ action: 'set_role', id: p.id, role: e.target.value },
-                                                     `${p.email} is now ${e.target.value}.`)}>
-                          <option value="staff">Staff</option>
-                          <option value="admin">Admin</option>
-                        </select>
+                        <span className="role-control">
+                          <select className="inline-select" value={p.role} disabled={isMe || busy}
+                                  aria-label={`Role for ${p.email}`}
+                                  onChange={(e) => handleRoleChange(p, e.target.value)}>
+                            <option value="staff">Staff</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          {updatingRoleId === p.id && (
+                            <span className="role-saving" role="status">
+                              <span className="mini-spinner" aria-hidden="true" />
+                              Saving…
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td className="actions">
                         <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => setResetFor(p)}>

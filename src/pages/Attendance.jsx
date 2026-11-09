@@ -55,25 +55,37 @@ export default function Attendance() {
         <div className="list-head">
           <h1>Attendance</h1>
           {isAdmin && (
-            <div className="tabs" role="tablist">
-              <button role="tab" aria-selected={tab === 'students'} className={tab === 'students' ? 'tab active' : 'tab'} onClick={() => switchTab('students')}>Students</button>
-              <button role="tab" aria-selected={tab === 'staff'} className={tab === 'staff' ? 'tab active' : 'tab'} onClick={() => switchTab('staff')}>Staff</button>
+            <div className="attendance-view-switch">
+              <span className="attendance-view-label">Show attendance for</span>
+              <div className="tabs attendance-tabs" role="group" aria-label="Show attendance for">
+                <button type="button" aria-pressed={tab === 'students'} className={tab === 'students' ? 'tab active' : 'tab'} onClick={() => switchTab('students')}>Students</button>
+                <button type="button" aria-pressed={tab === 'staff'} className={tab === 'staff' ? 'tab active' : 'tab'} onClick={() => switchTab('staff')}>Staff</button>
+              </div>
             </div>
           )}
         </div>
 
         <div className="filters">
-          <input type="date" value={date} max={todayLocal()} aria-label="Date"
-                 onChange={(e) => setDate(e.target.value || todayLocal())} />
+          <label className="filter-field">
+            Attendance date
+            <input type="date" value={date} max={todayLocal()} aria-label="Attendance date"
+                   onChange={(e) => setDate(e.target.value || todayLocal())} />
+          </label>
           {tab === 'students' && (
-            <select value={batch} onChange={(e) => setBatch(e.target.value)} aria-label="Filter by batch">
-              <option value="">All batches</option>
-              {BATCHES.map((b) => <option key={b}>{b}</option>)}
-            </select>
+            <label className="filter-field">
+              Batch
+              <select value={batch} onChange={(e) => setBatch(e.target.value)} aria-label="Filter by batch">
+                <option value="">All batches</option>
+                {BATCHES.map((b) => <option key={b}>{b}</option>)}
+              </select>
+            </label>
           )}
-          <input type="search" placeholder="Search by name" aria-label="Search by name"
-                 value={search} onChange={(e) => setSearch(e.target.value)} />
-          <button className="btn btn-outline" onClick={load} disabled={loading}>Refresh</button>
+          <label className="filter-field search-filter">
+            Search by name
+            <input type="search" placeholder="Enter a name" aria-label="Search by name"
+                   value={search} onChange={(e) => setSearch(e.target.value)} />
+          </label>
+          <button className="btn btn-outline" onClick={load} disabled={loading}>Refresh attendance</button>
         </div>
 
         <div className="stats">

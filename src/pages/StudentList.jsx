@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient.js';
 import { manageStaff } from '../api.js';
@@ -15,14 +15,18 @@ export default function StudentList() {
   const [search, setSearch] = useState('');
   const [batch, setBatch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [dialogFor, setDialogFor] = useState(null); // student whose login/password is being set
   const [working, setWorking] = useState(null);     // { id, label } while the server is busy
   const [flashId, setFlashId] = useState(null);     // row highlighted after success
+  const requestId = useRef(0);
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
+    const request = ++requestId.current;
+    setRefreshing(true);
+    setError('');
     let query = supabase
       .from('students')
       .select('id, full_name, admission_no, email, phone, course, batch, user_id')
@@ -31,9 +35,11 @@ export default function StudentList() {
     const q = search.trim().replace(/[,()%*]/g, '');
     if (q) query = query.or(`full_name.ilike.%${q}%,admission_no.ilike.%${q}%`);
     const { data, error: err } = await query;
+    if (request !== requestId.current) return;
     if (err) setError('Could not load students. Please try again.');
     else setStudents(data);
     setLoading(false);
+    setRefreshing(false);
   }, [search, batch]);
 
   useEffect(() => {
@@ -78,13 +84,22 @@ export default function StudentList() {
       </div>
 
       <div className="filters">
-        <input type="search" placeholder="Search by name or admission number" aria-label="Search students"
-               value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select value={batch} onChange={(e) => setBatch(e.target.value)} aria-label="Filter by batch">
-          <option value="">All batches</option>
-          {BATCHES.map((b) => <option key={b}>{b}</option>)}
-        </select>
-        <button className="btn btn-outline" onClick={load} disabled={loading}>Refresh</button>
+        <label className="filter-field search-filter">
+          Search students
+          <input type="search" placeholder="Name or admission number" aria-label="Search students"
+                 value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+        <label className="filter-field">
+          Batch
+          <select value={batch} onChange={(e) => setBatch(e.target.value)} aria-label="Filter by batch">
+            <option value="">All batches</option>
+            {BATCHES.map((b) => <option key={b}>{b}</option>)}
+          </select>
+        </label>
+        <button className="btn btn-outline student-refresh" onClick={load} disabled={refreshing} aria-busy={refreshing}
+                aria-label={refreshing ? 'Refreshing students' : 'Refresh students'}>
+          Refresh students
+        </button>
       </div>
 
       <Alert>{error}</Alert>
@@ -93,8 +108,8 @@ export default function StudentList() {
       {loading ? <Skeleton /> : students.length === 0 ? (
         <p className="muted empty">{search || batch ? 'No students match your filters.' : 'No students yet. Register the first student.'}</p>
       ) : (
-        <div className="table-wrap">
-          <table className="responsive">
+        <div className="table-wrap" aria-busy={refreshing}>
+          <table className="responsive student-table">
             <thead>
               <tr><th>Name</th><th>Admission no.</th><th>Batch</th><th>Email</th><th>Phone</th><th>Course</th><th>Login</th><th aria-label="Actions" /></tr>
             </thead>
@@ -114,7 +129,7 @@ export default function StudentList() {
                         : s.user_id ? <span className="badge badge-present">Active</span>
                         : <span className="badge badge-absent">None</span>}
                     </td>
-                    <td className="actions">
+                    <td className="actions student-actions">
                       <Link className="btn btn-outline btn-sm" to={`/students/${s.id}/edit`}>Edit</Link>
                       <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => setDialogFor(s)}>
                         {s.user_id ? 'Reset password' : 'Create login'}

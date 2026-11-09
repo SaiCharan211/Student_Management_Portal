@@ -14,9 +14,15 @@ export default function Layout() {
   const { profile, role, signOut } = useAuth();
   const { pathname } = useLocation();
   const [navOpen, setNavOpen] = useState(false);   // sidebar drawer (phones and tablets)
+  const [sidebarHidden, setSidebarHidden] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false); // profile dropdown
   const menuRef = useRef(null);
   const name = profile?.full_name || profile?.email;
+  const closeSidebar = () => {
+    if (isCompact) setNavOpen(false);
+    else setSidebarHidden(true);
+  };
 
   const items = role === 'student'
     ? [{ to: '/me', label: 'My dashboard', icon: 'home' }]
@@ -27,8 +33,23 @@ export default function Layout() {
         ...(role === 'admin' ? [{ to: '/staff', label: 'Manage staff', icon: 'shield' }] : []),
       ];
 
-  // Close menus when the page changes
-  useEffect(() => { setNavOpen(false); setMenuOpen(false); }, [pathname]);
+  // Close menus and start each page at the top after navigation.
+  useEffect(() => {
+    setNavOpen(false);
+    setMenuOpen(false);
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1024px)');
+    const update = () => {
+      setIsCompact(media.matches);
+      if (!media.matches) setNavOpen(false);
+    };
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   // Esc closes whatever is open; the page behind a drawer does not scroll
   useEffect(() => {
@@ -51,12 +72,12 @@ export default function Layout() {
   }, [menuOpen]);
 
   return (
-    <div className="shell">
-      <aside id="sidebar" className={navOpen ? 'sidebar open' : 'sidebar'} aria-label="Main navigation">
+    <div className={`shell${sidebarHidden ? ' sidebar-hidden' : ''}`}>
+      <aside id="sidebar" className={`sidebar${navOpen ? ' open' : ''}`} aria-label="Main navigation">
         <div className="sidebar-head">
-          <span className="brand"><span className="logo">SM</span>Student Management</span>
-          <button className="icon-btn sidebar-close" onClick={() => setNavOpen(false)} aria-label="Close menu">
-            <Icon name="close" />
+          <span className="brand"><span className="logo">SM</span><span className="brand-name">Student Management</span></span>
+          <button className="icon-btn sidebar-close" onClick={closeSidebar} aria-label="Collapse sidebar">
+            <Icon name="sidebarCollapse" />
           </button>
         </div>
         <p className="side-label">Menu</p>
@@ -70,15 +91,23 @@ export default function Layout() {
 
       <div className="main-col">
         <header className="topbar">
-          <button className="icon-btn menu-btn" onClick={() => setNavOpen(true)}
-                  aria-label="Open menu" aria-expanded={navOpen} aria-controls="sidebar">
-            <Icon name="menu" />
-          </button>
+          {(isCompact ? !navOpen : sidebarHidden) && (
+            <button
+              className="icon-btn menu-btn"
+              onClick={() => isCompact ? setNavOpen(true) : setSidebarHidden(false)}
+              aria-label={isCompact ? 'Open navigation' : 'Show sidebar'}
+              aria-expanded="false"
+              aria-controls="sidebar"
+            >
+              <Icon name="menu" />
+            </button>
+          )}
           <h2 className="top-title">{titleFor(pathname)}</h2>
 
           <div className="profile" ref={menuRef}>
             <button className="profile-btn" onClick={() => setMenuOpen((o) => !o)}
-                    aria-haspopup="menu" aria-expanded={menuOpen} aria-label="Open profile menu">
+                    aria-haspopup="menu" aria-expanded={menuOpen}
+                    aria-label={menuOpen ? 'Close profile menu' : 'Open profile menu'}>
               <Avatar name={name} />
               <span className="profile-text">
                 <span className="profile-name">{name}</span>
@@ -90,15 +119,16 @@ export default function Layout() {
             {menuOpen && (
               <div className="menu" role="menu">
                 <div className="menu-head">
-                  <Avatar name={name} />
+                  <Avatar name={name} large />
                   <div>
-                    <strong>{profile?.full_name || 'Signed in'}</strong>
-                    <small>{profile?.email}</small>
+                    <strong>{profile?.full_name || profile?.email || 'Signed in'}</strong>
+                    {profile?.full_name && profile?.email && <small>{profile.email}</small>}
                     <span className={`profile-role role-${role}`}>{role}</span>
                   </div>
                 </div>
-                <Link className="menu-item" role="menuitem" to="/account"><Icon name="key" />Change password</Link>
-                <button className="menu-item danger" role="menuitem" onClick={signOut}><Icon name="logout" />Log out</button>
+                <p className="menu-section-label">Account</p>
+                <Link className="menu-item account-action" role="menuitem" to="/account"><Icon name="key" />Change password</Link>
+                <button className="menu-item danger" role="menuitem" onClick={signOut}><Icon name="logout" />Sign out</button>
               </div>
             )}
           </div>

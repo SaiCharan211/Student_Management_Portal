@@ -47,6 +47,10 @@ export default function RegisterStudent() {
       registration_date: v.registration_date,
     };
 
+    console.log(payload
+      
+    )
+
     if (isEdit) {
       const { error: err } = await supabase.from('students').update(payload).eq('id', id);
       setSaving(false);
